@@ -316,5 +316,13 @@ namespace Hl7.FhirPath.R4.Tests
             Assert.AreEqual(true, invariantcheck);
 
         }
+
+        [TestMethod]
+        public void SelectUpperCaseElement()
+        {
+            var test = SourceNode.Resource("Root", "Root", SourceNode.Node("MSH", SourceNode.Valued("test", "test")));
+            var value = test.ToTypedElement().Select("MSH.test");
+            Assert.IsNotNull(value);
+        }
     }
 }

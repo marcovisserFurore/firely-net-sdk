@@ -1179,7 +1179,32 @@ namespace Hl7.Fhir.Specification.Tests
             }
         }
 
-      
+        [Fact]
+        public void ValidateNonBreakingWhitespaceInString()
+        {
+            var cs = new CodeSystem
+            {
+                Status = PublicationStatus.Active,
+                Content = CodeSystem.CodeSystemContentMode.Complete,
+                Concept = new List<CodeSystem.ConceptDefinitionComponent>
+                {
+                    new CodeSystem.ConceptDefinitionComponent
+                    {
+                        Code = "Test",
+                        Property = new List<CodeSystem.ConceptPropertyComponent>
+                        { new CodeSystem.ConceptPropertyComponent { Code = "note", Value = new FhirString("Test?Test")} // Value contains \u00A0 (Non-breaking space, Hex: C2 A0) 
+                        }
+                    }
+                }
+            };
+
+            var typedElement = cs.ToTypedElement();
+            var select = typedElement.Select("concept.property.value");
+
+            var result = _validator.Validate(cs);
+            Assert.True(result.Success);
+        }
+
 
         private class ClearSnapshotResolver : IResourceResolver
         {

@@ -1192,7 +1192,7 @@ namespace Hl7.Fhir.Specification.Tests
                     {
                         Code = "Test",
                         Property = new List<CodeSystem.ConceptPropertyComponent>
-                        { new CodeSystem.ConceptPropertyComponent { Code = "note", Value = new FhirString("Test?Test")} // Value contains \u00A0 (Non-breaking space, Hex: C2 A0) 
+                        { new CodeSystem.ConceptPropertyComponent { Code = "note", Value = new FhirString("Test Test")} // Value contains \u00A0 (Non-breaking space, Hex: C2 A0) 
                         }
                     }
                 }

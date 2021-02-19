@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks.Dataflow;
 using System.Xml.Linq;
 using Xunit;
@@ -1192,14 +1193,17 @@ namespace Hl7.Fhir.Specification.Tests
                     {
                         Code = "Test",
                         Property = new List<CodeSystem.ConceptPropertyComponent>
-                        { new CodeSystem.ConceptPropertyComponent { Code = "note", Value = new FhirString("Test Test")} // Value contains \u00A0 (Non-breaking space, Hex: C2 A0) 
+                        { new CodeSystem.ConceptPropertyComponent { Code = "note", Value = new FhirString("Test" + '\u00A0' + "Test")} // Value contains \u00A0 (Non-breaking space, Hex: C2 A0) 
                         }
                     }
                 }
             };
 
             var typedElement = cs.ToTypedElement();
-            var select = typedElement.Select("concept.property.value");
+            var value = typedElement.Select("concept.property.value").FirstOrDefault().Value as string;
+            var bytes = Encoding.UTF8.GetBytes(value);
+            var hex = Convert.ToHexString(bytes);
+            Assert.Equal("54657374C2A054657374", hex);
 
             var result = _validator.Validate(cs);
             Assert.True(result.Success);

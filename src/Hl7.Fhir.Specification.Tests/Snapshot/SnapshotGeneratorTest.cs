@@ -2469,7 +2469,7 @@ namespace Hl7.Fhir.Specification.Tests
             var coreArtifactNames = ModelInfo.FhirCsTypeToString.Values;
             var coreTypeUrls = coreArtifactNames
                 .Where(t => !ModelInfo.IsKnownResource(t))
-                .Where(t => !r5types.Contains(t) )                                                                           
+                .Where(t => !r5types.Contains(t))
                 .Select(t => "http://hl7.org/fhir/StructureDefinition/" + t).ToArray();
             await testExpandResources(coreTypeUrls.ToArray());
         }
@@ -4433,10 +4433,10 @@ namespace Hl7.Fhir.Specification.Tests
                             new ElementDefinition.TypeRefComponent()
                             {
                                 // Constrain Quantity to SimpleQuantity
-                                // Code = FHIRDefinedType.Quantity,
-                                // Profile = new string[] { ModelInfo.CanonicalUriForFhirCoreType(FHIRDefinedType.SimpleQuantity) }
+                                Code = FHIRDefinedType.Quantity.GetLiteral(),
+                                Profile = ModelInfo.CanonicalUriForFhirCoreType(FHIRAllTypes.SimpleQuantity) 
 
-                                Code = FHIRAllTypes.SimpleQuantity.GetLiteral()
+                                // Code = FHIRAllTypes.SimpleQuantity.GetLiteral()
                             },
                         }
                     }
@@ -4478,7 +4478,7 @@ namespace Hl7.Fhir.Specification.Tests
             Assert.IsTrue(nav.JumpToFirst("Observation.valueQuantity"));
             Assert.IsNotNull(nav.Current.Type);
             Assert.AreEqual(1, nav.Current.Type.Count);
-            Assert.AreEqual(FHIRAllTypes.SimpleQuantity.GetLiteral(), nav.Current.Type[0].Code);
+            Assert.AreEqual(FHIRAllTypes.Quantity.GetLiteral(), nav.Current.Type[0].Code);
 
             var type = nav.Current.Type.First();
             Debug.Print($"{nav.Path} : {type.Code} - '{type.Profile}'");
@@ -4495,7 +4495,7 @@ namespace Hl7.Fhir.Specification.Tests
             Assert.IsNull(snapshot.GetRootElement().SliceName);
             Assert.IsNull(_generator.Outcome);
         }
-         
+
         // [WMR 20170406] NEW
         // Issue reported by Vadim
         // Complex extension:   structure.cdstools-typedstage
@@ -5710,7 +5710,7 @@ namespace Hl7.Fhir.Specification.Tests
 
             // Verify there is NO warning about invalid element type constraint
             Assert.IsTrue(issues == null || !issues.Any());
-            
+
         }
 
         // [WMR 20170925] BUG: Stefan Lang - Forge displays both valueString and value[x]
@@ -6885,7 +6885,7 @@ namespace Hl7.Fhir.Specification.Tests
             Assert.IsTrue(expanded.HasSnapshot);
 
             var outcome = generator.Outcome;
-            Assert.IsNull(outcome);       
+            Assert.IsNull(outcome);
 
             var nav = ElementDefinitionNavigator.ForSnapshot(expanded);
             Assert.IsNotNull(nav);
@@ -6896,6 +6896,113 @@ namespace Hl7.Fhir.Specification.Tests
             Assert.AreEqual(2, elem.Code.Count);
             Assert.AreEqual("foo", elem.Code[0].Display);
             Assert.AreEqual("bar", elem.Code[1].Display);
+        }
+
+        [TestMethod]
+        public async T.Task TestExtensionOnValueSetBinding()
+        {
+            var profile = new StructureDefinition()
+            {
+                Type = FHIRAllTypes.Address.GetLiteral(),
+                BaseDefinition = ModelInfo.CanonicalUriForFhirCoreType(FHIRAllTypes.Address),
+                Name = "MyCustomAddress",
+                Url = "http://example.org/fhir/StructureDefinition/MyCustomAddress",
+                Differential = new StructureDefinition.DifferentialComponent()
+                {
+                    Element = new List<ElementDefinition>()
+                    {
+                        new ElementDefinition("Address.use")
+                        {
+                            Binding = new ElementDefinition.ElementDefinitionBindingComponent
+                            {
+                                Strength = BindingStrength.Required,
+                                ValueSet = new ResourceReference
+                                {
+                                    Extension = new List<Extension>{new Extension
+                                        {
+                                            Url = "http://hl7.org/fhir/StructureDefinition/11179-permitted-value-conceptmap",
+                                            Value = new ResourceReference
+                                            {
+                                                Reference = "http://nictiz.nl/fhir/ConceptMap/AdresSoortCodelijst-to-AddressUse",
+                                                Display = "AdresSoortCodelijst-to-AddressUse"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    }
+                }
+            };
+
+            _generator = new SnapshotGenerator(_testResolver, _settings);
+            (_, var expanded) = await generateSnapshotAndCompare(profile);
+
+            Assert.IsNotNull(expanded?.Snapshot?.Element);
+            Assert.IsTrue(expanded.Snapshot.Element.Where(e => e.Path == "Address.use").FirstOrDefault().Binding.ValueSet.Extension.Any(e => e.Url == "http://hl7.org/fhir/StructureDefinition/11179-permitted-value-conceptmap"));
+            Assert.IsNotNull(((ResourceReference)expanded.Snapshot.Element.Where(e => e.Path == "Address.use")?.FirstOrDefault()?.Binding?.ValueSet)?.Reference);
+        }
+
+        [TestMethod]
+        [Ignore] //[MS 20201211] TODO: Changing elementDefnMerger from mergeprimitives to mergecomplexattribute seems to do the trick, but there are is some string specific code that will be ignored in that case.
+        public async T.Task TestExtensionOnPrimitive()
+        {
+            var profile = new StructureDefinition()
+            {
+                Type = FHIRAllTypes.Address.GetLiteral(),
+                BaseDefinition = ModelInfo.CanonicalUriForFhirCoreType(FHIRAllTypes.Address),
+                Name = "MyCustomAddress",
+                Url = "http://example.org/fhir/StructureDefinition/MyCustomAddress",
+                Differential = new StructureDefinition.DifferentialComponent()
+                {
+                    Element = new List<ElementDefinition>()
+                    {
+                        new ElementDefinition("Address.use")
+                        {
+                            DefinitionElement = new Markdown
+                            {
+                                Extension = new List<Extension>
+                                {
+                                    new Extension
+                                    {
+                                        Url = "http://example.org/fhir/StructureDefinition/myExtension",
+                                        Value = new FhirString("TestValue")
+                                    }
+                                }
+                            }
+                        },
+                    }
+                }
+            };
+
+            _generator = new SnapshotGenerator(_testResolver, _settings);
+            (_, var expanded) = await generateSnapshotAndCompare(profile);
+
+            Assert.IsNotNull(expanded?.Snapshot?.Element);
+            Assert.IsTrue(expanded.Snapshot.Element.Where(e => e.Path == "Address.use").FirstOrDefault().DefinitionElement.Extension.Any(e => e.Url == "http://example.org/fhir/StructureDefinition/myExtension"));
+            Assert.IsNotNull(expanded.Snapshot.Element.Where(e => e.Path == "Address.use")?.FirstOrDefault()?.DefinitionElement?.Value);
+        }
+
+        [TestMethod]
+        public async T.Task TestInvariantsOnValueX()
+        {
+            var sd = await _testResolver.FindStructureDefinitionAsync("http://hl7.org/fhir/StructureDefinition/MedicationAdministration");
+
+            (_, var expanded) = await generateSnapshotAndCompare(sd);
+
+            dumpOutcome(_generator.Outcome);
+            dumpBaseElems(expanded.Snapshot.Element);
+            Assert.IsNotNull(expanded);
+            Assert.IsTrue(expanded.HasSnapshot);
+
+            var nav = ElementDefinitionNavigator.ForSnapshot(expanded);
+            Assert.IsTrue(nav.JumpToFirst("MedicationAdministration.dosage.rate[x]"));
+            Assert.IsNotNull(nav.Current);
+
+            //verify that rate[x] contains ele-1 but not rat-1
+            Assert.IsTrue(nav.Current.Constraint.Any(c => c.Key == "ele-1"));
+            Assert.IsFalse(nav.Current.Constraint.Any(c => c.Key == "rat-1"));
+
         }
 
         [TestMethod]
@@ -7247,5 +7354,30 @@ namespace Hl7.Fhir.Specification.Tests
             newSliceSystem.Should().NotBeNull("The new slice 'newSlice' should be present in the snapshot");
             newSliceSystem.Fixed.Should().BeNull("No constraint elements from the base slice (BSN) should be present");
         }
+
+        [TestMethod]
+        public async T.Task AddingSliceInClosedSlicing()
+        {
+            var testProfiles = new TestProfileArtifactSource();
+
+            var resolver = new CachedResolver(
+                new SnapshotSource(
+                    new MultiResolver(
+                        new CachedResolver(
+                            new TestProfileArtifactSource()),
+                            ZipSource.CreateValidationSource())));
+
+            var observation = await resolver.FindStructureDefinitionAsync("http://validationtest.org/fhir/StructureDefinition/ObservationSlicingCodeableConcept");
+
+            var openingSlice = observation.Snapshot.Element.FirstOrDefault(e => e.ElementId == "Observation.value[x]");
+            openingSlice.Should().NotBeNull("The opening slice should be present in the snapshot");
+            openingSlice.Type.Should().OnlyContain(t => t.Code == "CodeableConcept");
+
+            Func<T.Task> act = async () => { await resolver.FindStructureDefinitionAsync("http://validationtest.org/fhir/StructureDefinition/ObservationValueSlicingQuantity"); };
+            await act
+              .Should().ThrowAsync<InvalidOperationException>()
+              .WithMessage("*choice type of diff does not occur in snap*");
+        }
+
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Specification.Source;
+using Hl7.Fhir.Utility;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -33,8 +34,58 @@ namespace Hl7.Fhir.Validation
             buildQuantityWithUnlimitedRootCardinality(),
             buildRangeWithLowAsAQuantityWithUnlimitedRootCardinality(),
             buildPatientWithIdentifierSlicing(),
-            buildMiPatient()
+            buildMiPatient(),
+            slicingWithCodeableConcept(),
+            slicingWithQuantity()
         };
+
+        private static StructureDefinition slicingWithCodeableConcept()
+        {
+            var result = createTestSD("http://validationtest.org/fhir/StructureDefinition/ObservationSlicingCodeableConcept", "ObservationSlicingCodeableConcept",
+                       "Test Observation with slicing on value[x], first slice CodeableConcept", FHIRAllTypes.Observation);
+
+            var cons = result.Differential.Element;
+
+            var slicingIntro = new ElementDefinition("Observation.value[x]")
+               .WithSlicingIntro(ElementDefinition.SlicingRules.Closed)
+               .OfType(FHIRAllTypes.CodeableConcept);
+
+            cons.Add(slicingIntro);
+
+            cons.Add(new ElementDefinition("Observation.value[x]")
+            {
+                ElementId = "Observation.value[x]:valueCodeableConcept",
+                SliceName = "valueCodeableConcept",
+            }.OfType(FHIRAllTypes.CodeableConcept)
+             .WithBinding("http://somewhere/something", BindingStrength.Required));
+
+            return result;
+        }
+
+        private static StructureDefinition slicingWithQuantity()
+        {
+            var result = createTestSD("http://validationtest.org/fhir/StructureDefinition/ObservationValueSlicingQuantity", "ObservationSlicingQuantity",
+                       "Test Observation with slicing on value[x], first slice Quantity", FHIRAllTypes.Observation,
+                       "http://validationtest.org/fhir/StructureDefinition/ObservationSlicingCodeableConcept");
+
+            var cons = result.Differential.Element;
+
+            var slicingIntro = new ElementDefinition("Observation.value[x]")
+               .WithSlicingIntro(ElementDefinition.SlicingRules.Closed)
+               .OfType(FHIRAllTypes.Quantity);
+
+            cons.Add(slicingIntro);
+
+            cons.Add(new ElementDefinition("Observation.value[x]")
+            {
+                ElementId = "Observation.value[x]:valueQuantity",
+                SliceName = "valueQuantity",
+            }.OfType(FHIRAllTypes.Quantity)
+             .WithBinding("http://somewhere/something-else", BindingStrength.Required));
+
+            return result;
+        }
+
 
         private static StructureDefinition buildPatientWithIdentifierSlicing()
         {
@@ -407,11 +458,11 @@ namespace Hl7.Fhir.Validation
             else
                 result.Kind = StructureDefinition.StructureDefinitionKind.Logical;
 
-            result.Type = constrainedType.ToString();
+            result.Type = constrainedType.GetLiteral();
             result.Abstract = false;
 
             if (baseUri == null)
-                baseUri = ResourceIdentity.Core(constrainedType).ToString();
+                baseUri = ResourceIdentity.Core(constrainedType.GetLiteral()).ToString();
 
             result.BaseDefinition = baseUri;
 

@@ -1,20 +1,8 @@
-﻿#set the next two variables or get them from an Invoke-Expression, the rest should work automatically.
-Param(
+﻿Param(
+  [string]$propFile,
   [string]$newVersion,
   [string]$suffix
 )
-
-#Go to src (version is not relevant to test projects)
-Push-Location $PsScriptRoot\..\src
-
-if (Test-Path  ..\src\firely-net-sdk.props -PathType leaf)
-{
-     $propFile = "..\src\firely-net-sdk.props"
-}
-else
-{
-   $propFile = "..\src\fhir-net-api.props" # fallback to old name
-}
 
 $xml = [xml](get-content $propFile)
 
@@ -25,16 +13,12 @@ If ([string]::IsNullOrEmpty($newVersion))
 	$newVersion = $xml.Project.PropertyGroup.VersionPrefix
 }
 
-#Get the existing suffix
-[string] $oldSuffix = $xml.Project.PropertyGroup.VersionSuffix
-$oldSuffix = $oldSuffix.Trim()
-
-# when the suffix is not alpha (probably beta), it cannot be overriden by the parameter 
-if (!$oldSuffix.StartsWith("alpha") -or [string]::IsNullOrEmpty($oldSuffix))
+# suffix is not set, so getting it from the fhir-net-api.props
+If ([string]::IsNullOrEmpty($suffix)) 
 {
-	$suffix = $oldSuffix
+	$suffix = $xml.Project.PropertyGroup.VersionSuffix
 }
-
+	
 Write-Host "Replacing version information with version: [$newVersion] suffix: [$suffix]" 
 
 #Replacing the version and suffix
@@ -44,6 +28,3 @@ Write-Host "Replacing version information with version: [$newVersion] suffix: [$
         -replace "<VersionSuffix>.*</VersionSuffix>", "<VersionSuffix>$suffix</VersionSuffix>" `
     } |
     Set-Content $propFile
-
-#go back to the original directory
-Pop-Location
